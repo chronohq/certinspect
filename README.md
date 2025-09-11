@@ -1,5 +1,9 @@
 # CertInspect
 
+[![go workflow](https://github.com/chronohq/certinspect/actions/workflows/go.yml/badge.svg)](https://github.com/chronohq/certinspect/actions/workflows/go.yml)
+[![go reference](https://pkg.go.dev/badge/github.com/chronohq/certinspect.svg)](https://pkg.go.dev/github.com/chronohq/certinspect)
+[![mit license](https://img.shields.io/badge/license-MIT-green)](/LICENSE)
+
 **WIP** - This project is in early development.
 
 CertInspect is a Go package for inspecting TLS certificates from remote endpoints, built entirely with Go's standard library for zero external dependencies.
@@ -28,7 +32,7 @@ For other platforms, see the [latest binary release](https://github.com/chronohq
 
 ### Basic Usage
 
-```
+```shell
 certi --host www.chronohq.com
 {
   "hostname": "www.chronohq.com",
@@ -36,6 +40,8 @@ certi --host www.chronohq.com
   "remote_addr": "redacted:443",
   "tls_version": "1.3",
   "cipher_suite": "TLS_AES_128_GCM_SHA256",
+  "leaf_expires_at": "redacted",
+  "inspected_at": "redacted",
   "chain": [
     {
       "subject": "CN=chronohq.com",
@@ -44,9 +50,19 @@ certi --host www.chronohq.com
       "version": 3,
       "not_before": "redacted",
       "not_after": "redacted",
-      "expires_in": "redacted",
+      "expires_in": redacted,
       "public_key_algorithm": "ecdsa",
       "signature_algorithm": "ecdsa-sha384",
+      "san": [
+        {
+          "type": "dns",
+          "value": "chronohq.com"
+        },
+        {
+          "type": "dns",
+          "value": "www.chronohq.com"
+        }
+      ],
       "is_ca": false
     },
     {
@@ -56,14 +72,13 @@ certi --host www.chronohq.com
       "version": 3,
       "not_before": "redacted",
       "not_after": "redacted",
-      "expires_in": "redacted",
+      "expires_in": redacted,
       "public_key_algorithm": "ecdsa",
       "signature_algorithm": "sha256-rsa",
+      "san": [],
       "is_ca": true
     }
-  ],
-  "leaf_expires_at": "redacted",
-  "inspected_at": "redacted"
+  ]
 }
 ```
 

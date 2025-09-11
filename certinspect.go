@@ -1,6 +1,6 @@
 // Copyright Chrono Technologies LLC
 // SPDX-License-Identifier: MIT
-//
+
 // Package certinspect provides TLS certificate inspection for remote endpoints.
 package certinspect
 
@@ -19,8 +19,18 @@ const (
 	maxPort        = 1<<16 - 1
 )
 
+// Inspector performs TLS certificate inspections.
 type Inspector struct {
 	timeout time.Duration
+}
+
+// SANEntry represents a Subject Alternative Name entry.
+type SANEntry struct {
+	// Type is the SAN entry type (dns, ip, email, uri).
+	Type string `json:"type"`
+
+	// Value is the SAN entry value.
+	Value string `json:"value"`
 }
 
 // Certificate represents an X.509 certificate with its properties and metadata.
@@ -53,6 +63,9 @@ type Certificate struct {
 	// SignatureAlgorithm is the algorithm used to sign this certificate.
 	SignatureAlgorithm string `json:"signature_algorithm"`
 
+	// SAN contains the Subject Alternative Name entries.
+	SAN []SANEntry `json:"san"`
+
 	// IsCA is true if this certificate can sign other certificates.
 	IsCA bool `json:"is_ca"`
 }
@@ -74,14 +87,14 @@ type Result struct {
 	// CipherSuite is the negotiated TLS connection cipher suite.
 	CipherSuite string `json:"cipher_suite"`
 
-	// Chain contains the certificate chain from the endpoint.
-	Chain []Certificate `json:"chain"`
-
 	// LeafExpiresAt is when the leaf certificate expires.
 	LeafExpiresAt time.Time `json:"leaf_expires_at"`
 
 	// InspectedAt is when the inspection was performed.
 	InspectedAt time.Time `json:"inspected_at"`
+
+	// Chain contains the certificate chain from the endpoint.
+	Chain []Certificate `json:"chain"`
 }
 
 // New returns a new Inspector with default settings.
@@ -132,7 +145,25 @@ func (i *Inspector) Inspect(hostname string, port int) (Result, error) {
 			ExpiresIn:          time.Until(cert.NotAfter),
 			PublicKeyAlgorithm: strings.ToLower(cert.PublicKeyAlgorithm.String()),
 			SignatureAlgorithm: strings.ToLower(cert.SignatureAlgorithm.String()),
+			SAN:                []SANEntry{},
 			IsCA:               cert.IsCA,
+		}
+
+		// handle the subject alternative name extension
+		for _, dns := range cert.DNSNames {
+			certificate.SAN = append(certificate.SAN, SANEntry{Type: "dns", Value: dns})
+		}
+
+		for _, ip := range cert.IPAddresses {
+			certificate.SAN = append(certificate.SAN, SANEntry{Type: "ip", Value: ip.String()})
+		}
+
+		for _, email := range cert.EmailAddresses {
+			certificate.SAN = append(certificate.SAN, SANEntry{Type: "email", Value: email})
+		}
+
+		for _, uri := range cert.URIs {
+			certificate.SAN = append(certificate.SAN, SANEntry{Type: "uri", Value: uri.String()})
 		}
 
 		chain = append(chain, certificate)
@@ -144,9 +175,9 @@ func (i *Inspector) Inspect(hostname string, port int) (Result, error) {
 		RemoteAddr:    conn.RemoteAddr().String(),
 		TLSVersion:    tlsVersionString(state.Version),
 		CipherSuite:   tls.CipherSuiteName(state.CipherSuite),
-		Chain:         chain,
 		LeafExpiresAt: chain[0].NotAfter,
 		InspectedAt:   time.Now().UTC(),
+		Chain:         chain,
 	}
 
 	return ret, err

@@ -11,10 +11,12 @@ The package includes `certi`, a command-line tool that serves as both a practica
 
 ## Features
 
-* Certificate chain inspection
-* Expiration time tracking
-* Subject and issuer information
-* Certificate authority detection
+* Programmatic certificate chain inspection API
+* CLI tool included for manual certificate chain inspection
+* Certificate expiration time tracking
+* Subject Alternative Name (SAN) parsing
+* IPv6 address support
+* Zero external dependencies
 
 ## Command-line Tool
 
@@ -32,52 +34,26 @@ For other platforms, see the [latest binary release](https://github.com/chronohq
 
 ### Basic Usage
 
+Inspect a certificate on the default HTTPS port (443):
+
 ```shell
-certi --host www.chronohq.com
+certi www.chronohq.com
 {
-  "hostname": "www.chronohq.com",
-  "port": 443,
-  "remote_addr": "redacted:443",
-  "tls_version": "1.3",
-  "cipher_suite": "TLS_AES_128_GCM_SHA256",
-  "leaf_expires_at": "redacted",
-  "inspected_at": "redacted",
+  ...
   "chain": [
-    {
-      "subject": "CN=chronohq.com",
-      "issuer": "CN=E8,O=Let's Encrypt,C=US",
-      "serial_number": "redacted",
-      "version": 3,
-      "not_before": "redacted",
-      "not_after": "redacted",
-      "expires_in": redacted,
-      "public_key_algorithm": "ecdsa",
-      "signature_algorithm": "ecdsa-sha384",
-      "san": [
-        {
-          "type": "dns",
-          "value": "chronohq.com"
-        },
-        {
-          "type": "dns",
-          "value": "www.chronohq.com"
-        }
-      ],
-      "is_ca": false
-    },
-    {
-      "subject": "CN=E8,O=Let's Encrypt,C=US",
-      "issuer": "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
-      "serial_number": "redacted",
-      "version": 3,
-      "not_before": "redacted",
-      "not_after": "redacted",
-      "expires_in": redacted,
-      "public_key_algorithm": "ecdsa",
-      "signature_algorithm": "sha256-rsa",
-      "san": [],
-      "is_ca": true
-    }
+    ...
+  ]
+}
+```
+
+Inspect a certificate on a custom port:
+
+```shell
+certi www.chronohq.com:3000
+{
+  ...
+  "chain": [
+    ...
   ]
 }
 ```

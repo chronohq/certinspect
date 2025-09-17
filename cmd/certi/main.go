@@ -14,16 +14,15 @@ import (
 )
 
 const (
-	defaultPort     = 443
-	errHostRequired = "--host requires a value"
-	errPortRequired = "--port requires a value"
-	errPortInvalid  = "invalid port value"
+	defaultPort = 443
 )
 
 var (
 	// version holds the application version number.
 	// This value is overridden at build time using the -ldflags build flag.
 	version = "dev"
+
+	errHostnameRequired = errors.New("hostname is required")
 )
 
 type config struct {
@@ -31,78 +30,16 @@ type config struct {
 	port int
 }
 
-// parseArgs implements GNU-style flag parsing to provide familiar
-// --double-dash option syntax without external dependencies.
+// parseArgs implements GNU-style custom flag parsing to provide --double-dash
+// options and position-independent hostname argument, similar to curl and dig.
 func parseArgs(args []string) (config, error) {
 	cfg := config{port: defaultPort}
+	hostArgs := []string{}
 
-	for i := range args {
-		// skip program name
-		if i == 0 {
-			continue
-		}
-
+	for i := 1; i < len(args); i++ {
 		arg := args[i]
 
 		switch {
-		case arg == "--host":
-			if i+1 >= len(args) {
-				return cfg, errors.New(errHostRequired)
-			}
-
-			val := args[i+1]
-
-			if len(val) == 0 {
-				return cfg, errors.New(errHostRequired)
-			}
-
-			cfg.host = val
-			i++ // skip the value token
-
-		case strings.HasPrefix(arg, "--host="):
-			val := strings.SplitN(arg, "=", 2)[1]
-
-			if len(val) == 0 {
-				return cfg, errors.New(errHostRequired)
-			}
-
-			cfg.host = val
-
-		case arg == "--port":
-			if i+1 >= len(args) {
-				return cfg, errors.New(errPortRequired)
-			}
-
-			val := args[i+1]
-
-			if len(val) == 0 {
-				return cfg, errors.New(errPortRequired)
-			}
-
-			port, err := strconv.Atoi(val)
-
-			if err != nil {
-				return cfg, errors.New(errPortInvalid)
-			}
-
-			cfg.port = port
-			i++ // skip the value token
-
-		case strings.HasPrefix(arg, "--port="):
-			val := strings.SplitN(arg, "=", 2)[1]
-
-			if len(val) == 0 {
-				return cfg, errors.New(errPortRequired)
-			}
-
-			port, err := strconv.Atoi(val)
-
-			if err != nil {
-				return cfg, errors.New(errPortInvalid)
-			}
-
-			cfg.port = port
-
 		case arg == "--help" || arg == "-h":
 			printUsage()
 			os.Exit(0)
@@ -110,12 +47,53 @@ func parseArgs(args []string) (config, error) {
 		case arg == "--version" || arg == "-v":
 			fmt.Printf("certi %s\n", version)
 			os.Exit(0)
+
+		case strings.HasPrefix(arg, "-"):
+			return cfg, fmt.Errorf("unknown option: %s", arg)
+
+		default:
+			hostArgs = append(hostArgs, arg)
 		}
 	}
 
-	if len(cfg.host) == 0 {
-		return cfg, errors.New("--host is required")
+	if len(hostArgs) == 0 {
+		return cfg, errHostnameRequired
 	}
+
+	if len(hostArgs) > 1 {
+		return cfg, errors.New("only one hostname allowed")
+	}
+
+	target := hostArgs[0]
+
+	if len(target) == 0 {
+		return cfg, errHostnameRequired
+	}
+
+	// use LastIndex to support IPv6.
+	idx := strings.LastIndex(target, ":")
+
+	// no port detected, treat as a hostname-only query.
+	if idx == -1 {
+		cfg.host = target
+		return cfg, nil
+	}
+
+	// hostname is missing, for example: ":443".
+	if idx == 0 {
+		return cfg, errHostnameRequired
+	}
+
+	cfg.host = target[:idx]
+	portStr := target[idx+1:]
+
+	port, err := strconv.Atoi(portStr)
+
+	if err != nil {
+		return cfg, errors.New("invalid port number")
+	}
+
+	cfg.port = port
 
 	return cfg, nil
 }
@@ -123,17 +101,15 @@ func parseArgs(args []string) (config, error) {
 func printUsage() {
 	usage := `certi - TLS certificate chain inspection tool
 
-Usage: certi [OPTIONS]
+Usage: certi [OPTIONS] <hostname>[:<port>]
 
 Options:
-  --host host    Server host (required)
-  --port port    Server port (default: 443)
   --version, -v  Show the version and quit
   --help, -h     Show this help message and quit
 
 Examples:
-  certi --host example.com
-  certi --host 192.168.1.100 --port 3000`
+  certi example.com
+  certi 192.168.0.1:3000`
 
 	fmt.Fprintln(os.Stderr, usage)
 }

@@ -19,6 +19,23 @@ const (
 	maxPort        = 1<<16 - 1
 )
 
+// cipherSuites contains cipher suites that Go considers secure, plus common
+// legacy cipher suites needed for broader server compatibility in the wild.
+var cipherSuites = func() []uint16 {
+	defaultSuites := tls.CipherSuites()
+	suites := make([]uint16, len(defaultSuites))
+
+	for i, suite := range defaultSuites {
+		suites[i] = suite.ID
+	}
+
+	// include legacy cipher suites for broader server compatibility
+	suites = append(suites, tls.TLS_RSA_WITH_AES_256_CBC_SHA)
+	suites = append(suites, tls.TLS_RSA_WITH_AES_128_CBC_SHA)
+
+	return suites
+}()
+
 // Inspector performs TLS certificate inspections.
 type Inspector struct {
 	timeout time.Duration
@@ -112,6 +129,8 @@ func (i *Inspector) Inspect(hostname string, port int) (Result, error) {
 
 	config := &tls.Config{
 		ServerName:         hostname,
+		CipherSuites:       cipherSuites,
+		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: false,
 	}
 
